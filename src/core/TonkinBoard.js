@@ -101,6 +101,39 @@ export class TonkinBoard {
 
   constructor(pointLocations = pSeed) {
     this.pointLocations = pointLocations;
+    this.nodeRadius = 0;
+  }
+
+  /**
+   * Returns the points that are "in-reach" from the point
+   * given. A point is in reach in the circles at centers
+   * (fromX, fromY) and (pointX, pointY) overlap with radii
+   * reachRadius & this.nodeRadius.
+   *
+   * The returned array contains object with an id property
+   * and a distance property. The id is the point-id and the
+   * distance is the separation b/w the from-point and the
+   * point.
+   *
+   * @param fromX
+   * @param fromY
+   * @param reachRadius
+   */
+  findPointInReach(fromX, fromY, reachRadius=this.nodeRadius) {
+    const inReachPoints = [];
+
+    for (let pointId = 0; pointId < this.pointLocations.length; pointId++) {
+      const point = this.pointLocations[pointId];
+      const pointX = point[0], pointY = point[1];
+      const deltaX = fromX - pointX, deltaY = pointY - fromY;
+      const centerDistance = Math.sqrt(deltaX*deltaX + deltaY*deltaY);
+
+      if (centerDistance - reachRadius < this.nodeRadius) {
+        inReachPoints.push({ id: pointId, distance: centerDistance });
+      }
+    }
+
+    return inReachPoints;
   }
 
   /**

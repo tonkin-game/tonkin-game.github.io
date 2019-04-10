@@ -1,4 +1,4 @@
-import { tonkinApplication } from './core/PixiModel'
+import { boardCont, tonkinApplication } from './core/PixiModel'
 import * as ToPixiDrawer from './core/ToPixiDrawer'
 
-ToPixiDrawer.bindPixiToBoard(tonkinApplication.stage, 512, 512);
+console.log("Hello World!");

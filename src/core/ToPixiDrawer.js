@@ -6,7 +6,26 @@ import { lineToPoint, TonkinBoard } from './TonkinBoard'
 import * as PIXI from 'pixi.js'
 
 /**
- * Binds
+ * Constructs a new tonkin board that is binded to a PixiJS
+ * graphics model in a given container.
+ *
+ * It sets the {@code boardGraphics} property to the Graphics
+ * object used to draw the board's base layout. The radius of
+ * the placeholders is set by the {@code nodeRadius} parameter.
+ *
+ * It is important to actually pass the overrideWidth & overrideHeight
+ * parameters; apparently, PixiJS doesn't allow container to
+ * retain their width and height as set.
+ *
+ * @param pixiContainer { PIXI.Container } the container in
+ *    which a Graphics object will be added to show the board
+ * @param [overrideWidth = pixiContainer.width] the width of
+ *    of the graphics object to create
+ * @param [overrideHeight = pixiContainer.height] the height
+ *    of the graphics object to create
+ * @param [nodeRadius = 18] the size of the placeholders for
+ *    possible positions of pieces
+ * @return the constructed {@code TonkinBoard} object
  */
 export function bindPixiToBoard(pixiContainer,
     overrideWidth = pixiContainer.width,
@@ -51,6 +70,7 @@ export function bindPixiToBoard(pixiContainer,
       sine = 1;
     }
 
+    // cX, cY tell how much space to leave for the placeholder circles.
     const cX = nodeRadius * cosine * dir, cY = nodeRadius * sine * dir;
     boardGraphics.moveTo(pointMap[line[0]][0] + cX, pointMap[line[0]][1] + cY);
     for (let pOff = 1; pOff < line.length; pOff++) {
@@ -64,6 +84,7 @@ export function bindPixiToBoard(pixiContainer,
     }
   });
 
+  // Draws the placeholder circles.
   boardGraphics.beginFill(0xFFFFFF);
   if (nodeRadius !== 0) pointMap.forEach((point) => {
       boardGraphics.drawCircle(point[0], point[1], nodeRadius);
@@ -72,5 +93,22 @@ export function bindPixiToBoard(pixiContainer,
 
   pixiContainer.addChild(boardGraphics);
   tonkinBoard.boardGraphics = boardGraphics;
+  tonkinBoard.nodeRadius = nodeRadius;
   return tonkinBoard;
+}
+
+export function applyShadeAtNode(pointId, shade, tonkinBoard) {
+  const point = tonkinBoard.pointLocations[pointId];
+
+  console.log("CALLEDx");
+  tonkinBoard.boardGraphics.beginFill(shade);
+  tonkinBoard.boardGraphics.drawCircle(point[0], point[1],
+      tonkinBoard.nodeRadius);
+  tonkinBoard.boardGraphics.endFill();
+}
+
+export function applyShadeAtAllNodes(pointIds, shade, tonkinBoard) {
+  pointIds.forEach((pointId) => {
+    applyShadeAtNode(pointId, shade, tonkinBoard);
+  });
 }
