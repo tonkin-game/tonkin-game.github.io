@@ -100,7 +100,6 @@ export function bindPixiToBoard(pixiContainer,
 export function applyShadeAtNode(pointId, shade, tonkinBoard) {
   const point = tonkinBoard.pointLocations[pointId];
 
-  console.log("CALLEDx");
   tonkinBoard.boardGraphics.beginFill(shade);
   tonkinBoard.boardGraphics.drawCircle(point[0], point[1],
       tonkinBoard.nodeRadius);

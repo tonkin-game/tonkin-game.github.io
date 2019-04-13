@@ -1,8 +1,10 @@
 /**
  * PixiJS Application definitions.
  */
+import AnimationUtils from './AnimationUtils'
 import { attachDnDHandlers } from './DragAndDrop'
 import * as PIXI from 'pixi.js'
+import TonkinAnalyzer from './TonkinAnalyzer'
 import * as ToPixiDrawer from './ToPixiDrawer'
 
 const DECK_HEIGHT_FRAC = .1;
@@ -14,11 +16,27 @@ const PIECE_ZIDX = 10;
  * DrawingObject.
  */
 
-export const stageHeight = 512 / .8;
-export const stageWidth = 512;
+const heightToWidthRatio = 1 / .8;
+export var stageHeight = 512 / .8;
+export var stageWidth = 512;
+
+(function() {
+    const winWidth = window.innerWidth, winHeight = window.innerHeight;
+
+    if (winWidth > winHeight * heightToWidthRatio) {
+      // height is limiting factor
+      stageHeight = winHeight * .85;
+      stageWidth = stageHeight * heightToWidthRatio;
+    } else {
+      // width is limiting factor
+      stageWidth = winWidth * .85;
+      stageHeight = stageWidth / heightToWidthRatio;
+    }
+})();
+
 export const tonkinApplication = new PIXI.Application({
   antialias: true,
-  forceCanvas: true,
+//  forceCanvas: true,
   height: stageHeight,
   width: stageWidth
 });
@@ -60,12 +78,30 @@ export const tonkinBoard = ToPixiDrawer.bindPixiToBoard(boardCont, 512, 512);
 export var upperDeckGraphics, lowerDeckGraphics;
 export var upperPiecesGraphics, lowerPiecesGraphics;
 
+/**
+ * The drag-start event handler. It sets the highlighted point
+ * to none (-1).
+ */
 function onPieceDragStart() {
-  return {
-    highlightedPoint: -1
+  let dragData = {
+    highlightedPoint: -1,
+    possiblePositions: tonkinBoard.findAllMovablePositions(
+                        this.tonkinPieceData.pieceId)
   };
+
+  ToPixiDrawer.applyShadeAtAllNodes(dragData.possiblePositions,
+      0xffff94, tonkinBoard);
+  return dragData;
 }
 
+/**
+ * The drag event handler for tonkin pieces. It highlights
+ * position at which the piece will be dropped into if the
+ * user stops dragging.
+ *
+ * @param dragData
+ * @see attachDnDHandlers
+ */
 function onPieceDrag(dragData) {
   // findPointInReach expects x,y of center
   const newHighlights = tonkinBoard.findPointInReach(
@@ -82,42 +118,134 @@ function onPieceDrag(dragData) {
     if (newHighlight === oldHighlight)
       return;
 
-    ToPixiDrawer.applyShadeAtNode(newHighlight, 0x24dd34, tonkinBoard);
+    ToPixiDrawer.applyShadeAtNode(newHighlight, 0xffdd34, tonkinBoard);
     dragData.highlightedPoint = newHighlight;
   } else if (oldHighlight !== -1) {
     dragData.highlightedPoint = -1;
   }
 
   if (oldHighlight !== -1) {
-    ToPixiDrawer.applyShadeAtNode(oldHighlight, 0xFFFFFF, tonkinBoard);
+    ToPixiDrawer.applyShadeAtNode(oldHighlight,
+        dragData.possiblePositions.includes(oldHighlight) ?
+          0xffff94 : 0xFFFFFF, tonkinBoard);
   }
 }
 
+/**
+ * Clips the piece into the highlighted position; if no position
+ * is highlighted then it animates the piece back to its original
+ * position.
+ */
+function onPieceDragEnd(dragData) {
+  if (dragData.highlightedPoint !== -1 && tonkinBoard._turn === 0 &&
+        tonkinBoard.placePiece(this.tonkinPieceData.playerId,
+          this.tonkinPieceData.pieceId, dragData.highlightedPoint)) {
+    const newPointPosition =
+        tonkinBoard.pointLocations[dragData.highlightedPoint];
+    this.x = newPointPosition[0] + boardCont.x - tonkinBoard.nodeRadius;
+    this.y = newPointPosition[1] + boardCont.y - tonkinBoard.nodeRadius;
+  } else {
+    if (dragData.highlightedPoint !== -1) {
+      ToPixiDrawer.applyShadeAtNode(dragData.highlightedPoint, 0xFFFFFF,
+          tonkinBoard);
+    }
+
+    AnimationUtils.startAnimation(this, 500, AnimationUtils.pathFunction(
+      this.position, this.dndState.originalPosition,
+      AnimationUtils.linearAccelaration(5)
+    ));
+  }
+
+  ToPixiDrawer.applyShadeAtAllNodes(dragData.possiblePositions,
+        0xFFFFFF, tonkinBoard);// Remove possible-move highlighting
+}
+
+/**
+ * Registered move handler for the tonkin-board. It will invoke
+ * the computer-move or listen to the network (not made yet!).
+ */
+function onMove(event, details) {
+  if (tonkinBoard.isFinished) {
+    document.getElementById('game-over-msg').innerHTML = "GAME OVER! Reload!";
+    return;
+  }
+
+  if (event === 'move') {
+    if (details.turn === 1) {
+      for (let pidx = 0; pidx < 20; pidx++) {
+        const loc = tonkinBoard.findPieceLocation(pidx);
+        if (loc !== -1) {
+          const coords = tonkinBoard.pointLocations[loc];
+
+          tonkinBoard.graphics[pidx].position = {
+            x: coords[0] + boardCont.x - tonkinBoard.nodeRadius,
+            y: coords[1] + boardCont.y - tonkinBoard.nodeRadius
+          };
+        }
+      }
+    } else {
+      window.setTimeout(function() {
+        let analyzer = new TonkinAnalyzer(tonkinBoard);
+        analyzer.minimaxCompute();
+        tonkinBoard.placePiece(1, analyzer.minimax_move[0], analyzer.minimax_move[1]);
+      }, 200);
+    }
+  }
+}
+
+/**
+ * Initializes both the upper and lower decks and binds the
+ * displayed piece graphics to the actual tonkin-board.
+ */
 (function() {
   const deckHeight = stageHeight * DECK_HEIGHT_FRAC;
-  function initDeckGraphics(deckCont) {
+  let playerId = 0;
+  tonkinBoard.graphics = [];
+  tonkinBoard.addEventListener(onMove);
+
+  function initDeckGraphics(deckCont, color) {
     let deckGraphics = new PIXI.Graphics();
     deckGraphics.x = deckGraphics.y = 0;
     deckGraphics.width = stageWidth;
     deckGraphics.height = deckHeight;
     deckCont.addChild(deckGraphics);
 
-    const piecesGraphics = new PIXI.Graphics();
-    piecesGraphics.width = piecesGraphics.height = 36;
-    piecesGraphics.x = piecesGraphics.y = 10;
-    piecesGraphics.beginFill(0xFFFFFF);
-    piecesGraphics.lineStyle(2, 0);
-    piecesGraphics.drawCircle(18, 18, 17);
-    piecesGraphics.endFill();
-    piecesGraphics.zIndex = PIECE_ZIDX;
-    attachDnDHandlers(piecesGraphics, onPieceDragStart, onPieceDrag);
-    tonkinApplication.stage.addChild(piecesGraphics);
+    const allPieceGraphics = new Array(10);
+    deckCont.tonkinPlayerData = {
+      pieceGraphics: allPieceGraphics,
+      playerId: playerId
+    };
 
+    for (let i = 0; i < 10; i++) {
+      const pieceGraphics = new PIXI.Graphics();
+      allPieceGraphics.push(pieceGraphics);
+      pieceGraphics.width = pieceGraphics.height = 36;
+      pieceGraphics.x = deckCont.x + stageWidth * .9;
+      pieceGraphics.y = deckCont.y + deckHeight / 2 - 18;
+      pieceGraphics.beginFill(color);
+      pieceGraphics.lineStyle(2, 0);
+      pieceGraphics.drawCircle(18, 18, 17);
+      pieceGraphics.endFill();
+      pieceGraphics.zIndex = PIECE_ZIDX;
+
+      pieceGraphics.tonkinPieceData = {
+        playerId: playerId,
+        pieceId: i + playerId * 10
+      };
+
+      tonkinBoard.graphics.push(pieceGraphics);
+
+      attachDnDHandlers(pieceGraphics, onPieceDragStart,
+          onPieceDrag, onPieceDragEnd);
+      tonkinApplication.stage.addChild(pieceGraphics);
+    }
+
+    ++playerId;
     return deckGraphics;
   }
 
-  upperDeckGraphics = initDeckGraphics(upperDeckCont);
-  lowerDeckGraphics = initDeckGraphics(lowerDeckCont);
+  upperDeckGraphics = initDeckGraphics(upperDeckCont, 0xFEDCBA);
+  lowerDeckGraphics = initDeckGraphics(lowerDeckCont, 0xABCDEF);
 
   upperDeckGraphics.lineStyle(4, 0);
   upperDeckGraphics.moveTo(0, deckHeight - 2);

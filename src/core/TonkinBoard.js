@@ -1,7 +1,23 @@
+/**
+ * Defines the static layout of the tonkin board and wraps
+ * the runtime state of the game.
+ *
+ * The {@link lineToPoint} and {@link pointToLine} objects
+ * define the relation b/w possible positions of pieces and
+ * the lines along which they lie.
+ *
+ * The {@link pSeed} object holds the exact locations of the
+ * positions for a 2x2 tonkin board. It is used by the
+ * {@code TonkinBoard.generate} method to get the coordinates
+ * for any board of arbitrary size.
+ *
+ * The {@link TonkinBoard} class holds the runtime state of
+ * the game.
+ */
+
 /*
  * Each type of point is given a specific identifier.
  */
-
 export const MCE = 0;
 export const MMP = [1, 2, 3, 4];// l, t, r, b
 export const MCP = [5, 6, 7, 8];// tl, tr, bl, br
@@ -37,6 +53,13 @@ const pSeed = [
   [-.25, -.5], [-.5, -.25], [.5, -.25], [.25, -.5] // tdd pairs (bl & br)
 ];
 
+/**
+ * Contains an array of lines (which are arrays of point-ids)
+ * in the order defined in the specification.
+ *
+ * To get all the lines passing through a point, use the reverse
+ * map {@link pointToLine}
+ */
 export const lineToPoint = [
   /* All lines passing through the main center point!!! */
   [EQMP[0*2+1], TDT[0*2+1], TDD[0*2+1], MCE,
@@ -97,11 +120,128 @@ export const pointToLine = new Array(pSeed.length);
   }
 })();
 
+/**
+ * @return whether point and otherPoint lie on the same line and
+ *    are neighbouring points.
+ */
+function isNeighbouringPair(point, otherPoint) {
+  for (let pLineIdx = 0; pLineIdx < pointToLine[point].length; pLineIdx++) {
+    const testLine = lineToPoint[pointToLine[point][pLineIdx]];
+    const pointOff = testLine.indexOf(point);
+
+    if (pointOff > 0 && testLine[pointOff - 1] == otherPoint)
+      return true;
+    if (pointOff < testLine.length - 1 && testLine[pointOff + 1] == otherPoint)
+      return true;
+  }
+
+  return false;
+}
+
+/**
+ * Finds all the neighbouring positions for the given
+ * point.
+ *
+ * @return all neighbouring positions of point
+ */
+function findAllNeighbouringPositions(point) {
+  let lineSet = pointToLine[point];
+  let requiredPositions = [];
+
+  for (let lidx = 0; lidx < lineSet.length; lidx++) {
+    const line = lineToPoint[lineSet[lidx]];
+    const pointOff = line.indexOf(point);
+
+    if (pointOff > 0)
+      requiredPositions.push(line[pointOff - 1]);
+    if (pointOff < line.length - 1)
+      requiredPositions.push(line[pointOff + 1]);
+  }
+
+  return requiredPositions;
+}
+
 export class TonkinBoard {
 
-  constructor(pointLocations = pSeed) {
+  /**
+   * Constructs a tonkin board.
+   *
+   * @param pointLocations=pSeed - location map of the points
+   * @param [source] - TonkinBoard to (deep) copy
+   */
+  constructor(pointLocations = pSeed, source) {
+    if (source !== undefined &&
+          source instanceof TonkinBoard) {// copy from source instead
+      this.pointLocations = new Array(source.pointLocations.length);
+      this.nodeRadius = source.nodeRadius;
+      this._pieceRecord = [...source._pieceRecord];
+      this._turn = source._turn;
+
+      for (let plidx = 0; plidx < source.pointLocations.length; plidx++) {
+        const sourceRecord = source.pointLocations[plidx];
+        this.pointLocations[plidx] = {};
+        this.pointLocations[plidx].piece = sourceRecord.piece;
+      }
+
+      this.isFinished = source.isFinished;
+      this.winner = source.winner;
+      return;
+    }
+
+    /**
+     * A map of the coordinates of each point by its id.
+     */
     this.pointLocations = pointLocations;
+
+    /**
+     * Displayed size of position placeholders.
+     */
     this.nodeRadius = 0;
+
+    /*
+     * Array that contain the point-id at which
+     * the piece is placed right now. If the piece has not been
+     * placed yet, the point-id is zero.
+     */
+    this._pieceRecord = [
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+      -1, -1, -1, -1, -1, -1, -1, -1, -1, -1
+    ];
+
+    /*
+     * Holds which player has the turn right now. 0 for the first
+     * player and 1 for the second player.
+     */
+    this._turn = 0;
+
+    /**
+     * This is set to true when the {@code TonkinBoard} will reject
+     * all further inputs. That happens when one player wins or if
+     * an external circumstance arises (like resignation). Set it to
+     * true to forcibly end the game.
+     */
+    this.isFinished = false;
+
+    /**
+     * This is set when the game ends by {@code TonkinBoard}. However,
+     * if an external component sets {@code isFinished} to true, then it
+     * may not be initialized.
+     */
+    this.winner = undefined;
+
+    /**
+     * The list of event-listeners registered with this board. Note that
+     * this isn't copied ever.
+     */
+    this._eventListeners = [];
+  }
+
+  /**
+   * @readonly
+   * @return the player who has the current turn
+   */
+  get turn() {
+    return this._turn;
   }
 
   /**
@@ -134,6 +274,163 @@ export class TonkinBoard {
     }
 
     return inReachPoints;
+  }
+
+  /**
+   * @param position - point-id of the position
+   * @return player holding the position given; -1 if neither
+   *    player a position.
+   */
+  findPlayerOwningPosition(position) {
+    const pieceId = this.pointLocations[position].piece;
+    if (pieceId === undefined)
+      return -1;
+    return (pieceId >= 10) ? 1: 0;
+  }
+
+  /**
+   * Searches for any line that is completely filled by any one
+   * player. Returns the player's id if any is found.
+   *
+   * @return player-id who completed one full line; -1, if not
+   *    done yet!
+   */
+  isAnyLineSaturated() {
+    for (let lineIdx = 0; lineIdx < lineToPoint.length; lineIdx++) {
+      let line = lineToPoint[lineIdx];
+      let playerId = this.findPlayerOwningPosition(line[0]);
+      if (playerId === -1)
+        continue;
+      let isAnyNotSame = false;// not same as first piece
+
+      for (let pointOff = 1; pointOff < line.length; pointOff++) {
+        const pointId = line[pointOff];
+
+        if (this.findPlayerOwningPosition(pointId) !== playerId) {
+          isAnyNotSame = true;
+          break;
+        }
+      }
+
+      if (!isAnyNotSame) {
+        return playerId;
+      }
+    }
+
+    return -1;
+  }
+
+  /**
+   * @return an array of all point-ids that are not occupied by
+   *    any piece currently.
+   */
+  findAllEmptyPositions() {
+    let emptyPositions = [];
+    for (let pid = 0; pid < this.pointLocations.length; pid++) {
+      if (this.pointLocations[pid].piece === undefined)
+        emptyPositions.push(pid);
+    }
+
+    return emptyPositions;
+  }
+
+  /**
+   * @return all the possible positions a piece
+   */
+  findAllMovablePositions(piece) {
+    const point = this._pieceRecord[piece];
+    if (point === -1) {
+      // not placed yet!
+      return this.findAllEmptyPositions();
+    }
+
+    return findAllNeighbouringPositions(point).filter((pointId) => {
+      return this.findPlayerOwningPosition(pointId) === -1;
+    }, this);
+  }
+
+  /**
+   * @param piece - the piece-id
+   * @return the location of the given piece
+   */
+  findPieceLocation(piece) {
+    return this._pieceRecord[piece];
+  }
+
+  /**
+   * Places the piece (playerId, pieceId) at the new
+   * position if allowed by the rules of the game.
+   *
+   * @param playerId - 0 for first player, 1 for second
+   * @param pieceId - id of the piece
+   * @param newPosition - new point-id to place the piece at
+   * @return whether the piece was placed at the new position
+   *    or not.
+   */
+  placePiece(playerId, pieceId, newPosition) {
+    if (playerId != this._turn || this.isFinished) {
+      if (!this.isFinished)
+        console.log("Wrong turn");
+      else
+        console.log("FINISHED DUDE!! " + this.winner);
+      return false;// not this player's turn or game ended already
+    }
+    if (this.pointLocations[newPosition].piece !== undefined) {
+      return false;// already occupied
+    }
+
+    let oldPosition = this._pieceRecord[pieceId];
+    if (oldPosition === -1 || isNeighbouringPair(oldPosition, newPosition)) {
+      this._pieceRecord[pieceId] = newPosition;
+      if (oldPosition !== -1)
+        this.pointLocations[oldPosition].piece = undefined;
+      this.pointLocations[newPosition].piece = pieceId;
+
+      const oldTurn = this._turn;
+      this._turn = (this._turn === 0) ? 1 : 0;
+
+      const isAnyLineSaturated = this.isAnyLineSaturated();
+      if (isAnyLineSaturated !== -1) {
+        this.isFinished = true;
+        this.winner = isAnyLineSaturated;
+      }
+
+      this._dispatchEvent("move", { turn : oldTurn });
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Returns a copy of this {@code TonkinBoard}. It is equivalent
+   * calling {@code new TonkinBoard(undefined, tonkinBoardObject)}.
+   *
+   * @return a copy of this TonkinBoard
+   */
+  copy() {
+    return new TonkinBoard(undefined, this);
+  }
+
+  _dispatchEvent(event, details) {
+    if (this._eventListeners === undefined)
+      return;
+
+    this._eventListeners.forEach((listener) => {
+      listener(event, details);
+    });
+  }
+
+  addEventListener(listener) {
+    if (this._eventListeners === undefined) {
+      this._eventListeners = [];
+    }
+
+    this._eventListeners.push(listener);
+  }
+
+  removeEventListener(listener) {
+    this._eventListeners.splice(this._eventListeners.indexOf(listener), 1);
   }
 
   /**
