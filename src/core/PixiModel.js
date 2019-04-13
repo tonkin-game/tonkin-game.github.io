@@ -7,7 +7,7 @@ import * as PIXI from 'pixi.js'
 import TonkinAnalyzer from './TonkinAnalyzer'
 import * as ToPixiDrawer from './ToPixiDrawer'
 
-const DECK_HEIGHT_FRAC = .1;
+var DECK_FRAC = .1;
 const PIECE_ZIDX = 10;
 
 /*
@@ -17,6 +17,8 @@ const PIECE_ZIDX = 10;
  */
 
 const heightToWidthRatio = .8;
+
+export var orientation = 'vertical';
 export var stageHeight = 512 / .8;
 export var stageWidth = 512;
 export var displayedNodeRadius = 18;
@@ -26,16 +28,22 @@ export var displayedNodeRadius = 18;
 
     if (winWidth > winHeight * heightToWidthRatio) {
       // height is limiting factor
-      stageHeight = winHeight * .85;
-      stageWidth = stageHeight * heightToWidthRatio;
+      stageHeight = winHeight * .95;
+      stageWidth = stageHeight / .8;
+      orientation = 'horizontal';
+      displayedNodeRadius = stageHeight * 18 / 512;
     } else {
       // width is limiting factor
-      stageWidth = winWidth * .85;
+      stageWidth = winWidth * .95;
       stageHeight = stageWidth / heightToWidthRatio;
+      displayedNodeRadius = stageWidth * 18 / 512;
     }
-
-    displayedNodeRadius = stageWidth * 18 / 512;
 })();
+
+const deckHeight = (orientation === 'vertical') ?
+                      stageHeight * DECK_FRAC : stageHeight;
+const deckWidth = (orientation === 'horizontal') ?
+                      stageWidth * DECK_FRAC : stageWidth;
 
 export const tonkinApplication = new PIXI.Application({
   antialias: true,
@@ -58,25 +66,47 @@ tonkinApplication.stage.sortableChildren = true;
 })();
 
 export const upperDeckCont = new PIXI.Container();
-upperDeckCont.x = upperDeckCont.y = 0;
-upperDeckCont.width = stageWidth;
-upperDeckCont.height = stageHeight * DECK_HEIGHT_FRAC;
-
 export const boardCont = new PIXI.Container();
-boardCont.x = 0;
-boardCont.y = stageHeight * DECK_HEIGHT_FRAC;
-boardCont.width = stageWidth;
-boardCont.height = stageHeight * (1 - 2*DECK_HEIGHT_FRAC);
-
 export const lowerDeckCont = new PIXI.Container();
-lowerDeckCont.x = 0;
-lowerDeckCont.y = stageHeight * (1 - DECK_HEIGHT_FRAC);
-lowerDeckCont.width = stageWidth;
-lowerDeckCont.height = stageHeight * DECK_HEIGHT_FRAC;
+
+if (orientation == 'vertical') {
+  upperDeckCont.x = upperDeckCont.y = 0;
+  upperDeckCont.width = stageWidth;
+  upperDeckCont.height = stageHeight * DECK_FRAC;
+
+  boardCont.x = 0;
+  boardCont.y = stageHeight * DECK_FRAC;
+  boardCont.width = stageWidth;
+  boardCont.height = stageHeight * (1 - 2*DECK_FRAC);
+
+  lowerDeckCont.x = 0;
+  lowerDeckCont.y = stageHeight * (1 - DECK_FRAC);
+  lowerDeckCont.width = stageWidth;
+  lowerDeckCont.height = stageHeight * DECK_FRAC;
+} else {
+  upperDeckCont.x = upperDeckCont.y = 0;
+  upperDeckCont.width = stageWidth * DECK_FRAC;
+  upperDeckCont.height = stageHeight;
+
+  boardCont.x = stageWidth * DECK_FRAC;
+  boardCont.y = 0;
+  boardCont.width = stageWidth * (1 - 2*DECK_FRAC);
+  boardCont.height = stageHeight;
+
+  lowerDeckCont.x = stageWidth * (1 - DECK_FRAC);
+  lowerDeckCont.y = 0;
+  lowerDeckCont.width = stageWidth * DECK_FRAC;
+  lowerDeckCont.height = stageHeight;
+}
 
 tonkinApplication.stage.addChild(upperDeckCont,
     boardCont, lowerDeckCont);
-export const tonkinBoard = ToPixiDrawer.bindPixiToBoard(boardCont, stageWidth, stageWidth, displayedNodeRadius);
+const boardWidth = (orientation === 'vertical') ? stageWidth :
+                                stageWidth - 2 * deckWidth;
+const boardHeight = (orientation === 'horizontal') ? stageHeight :
+                                stageHeight - 2 * deckHeight;
+export const tonkinBoard = ToPixiDrawer.bindPixiToBoard(boardCont,
+  boardWidth, boardHeight, displayedNodeRadius);
 
 export var upperDeckGraphics, lowerDeckGraphics;
 export var upperPiecesGraphics, lowerPiecesGraphics;
@@ -199,7 +229,6 @@ function onMove(event, details) {
  * displayed piece graphics to the actual tonkin-board.
  */
 (function() {
-  const deckHeight = stageHeight * DECK_HEIGHT_FRAC;
   let playerId = 0;
   tonkinBoard.graphics = [];
   tonkinBoard.addEventListener(onMove);
@@ -207,7 +236,7 @@ function onMove(event, details) {
   function initDeckGraphics(deckCont, color) {
     let deckGraphics = new PIXI.Graphics();
     deckGraphics.x = deckGraphics.y = 0;
-    deckGraphics.width = stageWidth;
+    deckGraphics.width = deckWidth;
     deckGraphics.height = deckHeight;
     deckCont.addChild(deckGraphics);
 
@@ -221,8 +250,9 @@ function onMove(event, details) {
       const pieceGraphics = new PIXI.Graphics();
       allPieceGraphics.push(pieceGraphics);
       pieceGraphics.width = pieceGraphics.height = displayedNodeRadius * 2;
-      pieceGraphics.x = deckCont.x + stageWidth * .9;
+      pieceGraphics.x = deckCont.x + deckWidth / 2 - displayedNodeRadius;
       pieceGraphics.y = deckCont.y + deckHeight / 2 - displayedNodeRadius;
+
       pieceGraphics.beginFill(color);
       pieceGraphics.lineStyle(2, 0);
       pieceGraphics.drawCircle(displayedNodeRadius, displayedNodeRadius, displayedNodeRadius - 1);
@@ -249,12 +279,19 @@ function onMove(event, details) {
   lowerDeckGraphics = initDeckGraphics(lowerDeckCont, 0xABCDEF);
 
   upperDeckGraphics.lineStyle(4, 0);
-  upperDeckGraphics.moveTo(0, deckHeight - 2);
-  upperDeckGraphics.lineTo(stageWidth, deckHeight - 2);
-
   lowerDeckGraphics.lineStyle(4, 0);
-  lowerDeckGraphics.moveTo(0, 0);
-  lowerDeckGraphics.lineTo(stageWidth, 2);
+
+  if (orientation === 'vertical') {
+    upperDeckGraphics.moveTo(0, deckHeight - 2);
+    upperDeckGraphics.lineTo(deckWidth, deckHeight - 2);
+    lowerDeckGraphics.moveTo(0, 0);
+    lowerDeckGraphics.lineTo(deckWidth, 2);
+  } else {
+    upperDeckGraphics.moveTo(deckWidth - 2, 0);
+    upperDeckGraphics.lineTo(deckWidth - 2, deckHeight - 2);
+    lowerDeckGraphics.moveTo(0, 0);
+    lowerDeckGraphics.lineTo(0, deckHeight - 2);
+  }
 })();
 
 document.getElementById('tonkin-pixi-root')
