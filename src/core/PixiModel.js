@@ -16,9 +16,10 @@ const PIECE_ZIDX = 10;
  * DrawingObject.
  */
 
-const heightToWidthRatio = 1 / .8;
+const heightToWidthRatio = .8;
 export var stageHeight = 512 / .8;
 export var stageWidth = 512;
+export var displayedNodeRadius = 18;
 
 (function() {
     const winWidth = window.innerWidth, winHeight = window.innerHeight;
@@ -32,6 +33,8 @@ export var stageWidth = 512;
       stageWidth = winWidth * .85;
       stageHeight = stageWidth / heightToWidthRatio;
     }
+
+    displayedNodeRadius = stageWidth * 18 / 512;
 })();
 
 export const tonkinApplication = new PIXI.Application({
@@ -42,8 +45,8 @@ export const tonkinApplication = new PIXI.Application({
 });
 
 tonkinApplication.renderer.backgroundColor = 0xe9f8f8;
-tonkinApplication.stage.width = 512;
-tonkinApplication.stage.height = 512;
+tonkinApplication.stage.width = stageWidth;
+tonkinApplication.stage.height = stageHeight;
 tonkinApplication.stage.sortableChildren = true;
 
 /* Applies a border style to the canvas element. */
@@ -73,7 +76,7 @@ lowerDeckCont.height = stageHeight * DECK_HEIGHT_FRAC;
 
 tonkinApplication.stage.addChild(upperDeckCont,
     boardCont, lowerDeckCont);
-export const tonkinBoard = ToPixiDrawer.bindPixiToBoard(boardCont, 512, 512);
+export const tonkinBoard = ToPixiDrawer.bindPixiToBoard(boardCont, stageWidth, stageWidth, displayedNodeRadius);
 
 export var upperDeckGraphics, lowerDeckGraphics;
 export var upperPiecesGraphics, lowerPiecesGraphics;
@@ -219,12 +222,12 @@ function onMove(event, details) {
     for (let i = 0; i < 10; i++) {
       const pieceGraphics = new PIXI.Graphics();
       allPieceGraphics.push(pieceGraphics);
-      pieceGraphics.width = pieceGraphics.height = 36;
+      pieceGraphics.width = pieceGraphics.height = displayedNodeRadius * 2;
       pieceGraphics.x = deckCont.x + stageWidth * .9;
-      pieceGraphics.y = deckCont.y + deckHeight / 2 - 18;
+      pieceGraphics.y = deckCont.y + deckHeight / 2 - displayedNodeRadius;
       pieceGraphics.beginFill(color);
       pieceGraphics.lineStyle(2, 0);
-      pieceGraphics.drawCircle(18, 18, 17);
+      pieceGraphics.drawCircle(displayedNodeRadius, displayedNodeRadius, displayedNodeRadius - 1);
       pieceGraphics.endFill();
       pieceGraphics.zIndex = PIECE_ZIDX;
 
