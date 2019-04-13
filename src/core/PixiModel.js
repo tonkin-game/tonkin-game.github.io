@@ -170,17 +170,15 @@ function onPieceDragEnd(dragData) {
 function onMove(event, details) {
   if (event === 'move') {
     if (details.turn === 1) {
-      for (let pidx = 0; pidx < 20; pidx++) {
-        const loc = tonkinBoard.findPieceLocation(pidx);
-        if (loc !== -1) {
-          const coords = tonkinBoard.pointLocations[loc];
-
-          tonkinBoard.graphics[pidx].position = {
-            x: coords[0] + boardCont.x - tonkinBoard.nodeRadius,
-            y: coords[1] + boardCont.y - tonkinBoard.nodeRadius
-          };
-        }
-      }
+      let target = tonkinBoard.graphics[details.piece];
+      let newLocationArr = tonkinBoard.pointLocations[details.newPosition];
+      let newPosition = {
+        x: newLocationArr[0] - displayedNodeRadius + boardCont.x,
+        y: newLocationArr[1] - displayedNodeRadius + boardCont.y
+      };
+      AnimationUtils.startAnimation(target, 800, AnimationUtils.pathFunction(
+       target.position, newPosition, AnimationUtils.linearAccelaration(3)
+      ));
     } else if (tonkinBoard.isFinished !== true) {
       window.setTimeout(function() {
         let analyzer = new TonkinAnalyzer(tonkinBoard);

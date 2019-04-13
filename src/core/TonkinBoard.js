@@ -397,7 +397,12 @@ export class TonkinBoard {
         this.winner = isAnyLineSaturated;
       }
 
-      this._dispatchEvent("move", { turn : oldTurn });
+      this._dispatchEvent("move", {
+        turn : oldTurn,
+        piece: pieceId,
+        oldPosition: oldPosition,
+        newPosition: newPosition
+      });
       return true;
     }
 
