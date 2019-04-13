@@ -313,6 +313,8 @@ export class TonkinBoard {
       }
 
       if (!isAnyNotSame) {
+        if (this._eventListeners !== undefined)
+          console.log("Saturated: " + lineIdx);
         return playerId;
       }
     }

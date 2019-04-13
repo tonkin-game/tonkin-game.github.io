@@ -168,11 +168,6 @@ function onPieceDragEnd(dragData) {
  * the computer-move or listen to the network (not made yet!).
  */
 function onMove(event, details) {
-  if (tonkinBoard.isFinished) {
-    document.getElementById('game-over-msg').innerHTML = "GAME OVER! Reload!";
-    return;
-  }
-
   if (event === 'move') {
     if (details.turn === 1) {
       for (let pidx = 0; pidx < 20; pidx++) {
@@ -186,13 +181,18 @@ function onMove(event, details) {
           };
         }
       }
-    } else {
+    } else if (tonkinBoard.isFinished !== true) {
       window.setTimeout(function() {
         let analyzer = new TonkinAnalyzer(tonkinBoard);
         analyzer.minimaxCompute();
         tonkinBoard.placePiece(1, analyzer.minimax_move[0], analyzer.minimax_move[1]);
       }, 200);
     }
+  }
+
+  if (tonkinBoard.isFinished) {
+    document.getElementById('game-over-msg').innerHTML = "GAME OVER! Reload!";
+    return;
   }
 }
 
