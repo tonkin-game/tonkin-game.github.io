@@ -24,11 +24,45 @@ module.exports = {
                       ie: 11
                     }
                   }
-                ]
+                ],
+                '@babel/preset-react'
               ]
             }
           }
         ]
+      },
+      {
+        test: /\.css$/,
+        use: [
+          {
+            loader: 'file-loader',
+            options: {
+              name: 'index.css'
+            }
+          },
+          'extract-loader',
+          'css-loader'
+        ]
+      },
+      {
+        test: /\.(ttf|eot|svg)$/,
+        use: {
+          loader: 'file-loader',
+          options: {
+            name: 'fonts/[hash].[ext]'
+          }
+        }
+      },
+      {
+        test: /\.(woff|woff2)$/,
+        use: {
+          loader: 'file-loader',
+          options: {
+            name: 'fonts/[name].[ext]',
+            limit: 5000,
+            mimetype: 'application/font-woff'
+          }
+        }
       }
     ]
   },

@@ -293,6 +293,3 @@ function onMove(event, details) {
     lowerDeckGraphics.lineTo(0, deckHeight - 2);
   }
 })();
-
-document.getElementById('tonkin-pixi-root')
-  .appendChild(tonkinApplication.view);

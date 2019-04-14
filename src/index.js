@@ -2,7 +2,11 @@ import * as PIXI from 'pixi.js'
 import { boardCont, tonkinApplication } from './core/PixiModel'
 import * as ToPixiDrawer from './core/ToPixiDrawer'
 
-window.onload = function() {
+import React from 'react'
+import ReactDOM from 'react-dom'
+import ConfigPanel from './focus-area-components/ConfigPanel'
 
-  console.log("Hello World!");
+window.onload = function() {
+  document.getElementById('tonkin-pixi-root').appendChild(tonkinApplication.view);
+  ReactDOM.render(<ConfigPanel />, document.getElementById('config-panel'));
 }

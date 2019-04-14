@@ -1,13 +1,29 @@
 <!DOCTYPE html>
 <html>
-  <header>
+  <head>
     <meta charset="utf-8" />
     <title>Tonkin</title>
-  </header>
+    <link href="node_modules/@blueprintjs/icons/lib/css/blueprint-icons.css" rel="stylesheet" type="text/css" />
+    <link href="dist/index.css" rel="stylesheet" type="text/css" />
+  </head>
   <body>
-    <div id="tonkin-pixi-root"></div>
+    <div id="focus-area">
+      <div id="tonkin-pixi-root"></div>
+      <div id="config-panel" style="flex-grow: 1;"></div>
+    </div>
+    <style>
+      #focus-area {
+        align-items: strech;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        height: 100%;
+        position: relative;
+      }
+    </style>
     <div id="game-over-msg"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/4.8.7/pixi.min.js"></script>
+    <script src="https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.3.1.min.js"></script>
     <script src="dist/tonkin.js"></script>
   </body>
 </html>
