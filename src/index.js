@@ -4,9 +4,9 @@ import * as ToPixiDrawer from './core/ToPixiDrawer'
 
 import React from 'react'
 import ReactDOM from 'react-dom'
-import ConfigPanel from './focus-area-components/ConfigPanel'
+import FocusArea from './focus-area-components/FocusArea'
 
 window.onload = function() {
   document.getElementById('tonkin-pixi-root').appendChild(tonkinApplication.view);
-  ReactDOM.render(<ConfigPanel />, document.getElementById('config-panel'));
+  ReactDOM.render(<FocusArea />, document.getElementById('config-panel'));
 }

@@ -1,3 +1,4 @@
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const path = require('path');
 
 module.exports = {
@@ -34,13 +35,7 @@ module.exports = {
       {
         test: /\.css$/,
         use: [
-          {
-            loader: 'file-loader',
-            options: {
-              name: 'index.css'
-            }
-          },
-          'extract-loader',
+          { loader: MiniCssExtractPlugin.loader },
           'css-loader'
         ]
       },
@@ -69,5 +64,10 @@ module.exports = {
   output: {
     path: path.resolve(__dirname, "dist"),
     filename: "tonkin.js",
-  }
+  },
+  plugins: [
+    new MiniCssExtractPlugin({
+      filename: "index.css"
+    })
+  ]
 };
